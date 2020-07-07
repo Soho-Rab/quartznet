@@ -33,10 +33,8 @@ namespace Quartz.Tests.Unit
     /// <author>Marko Lahma (.NET)</author>
     [TestFixture(typeof(BinaryObjectSerializer))]
     [TestFixture(typeof(JsonObjectSerializer))]
-    public class CronExpressionTest : SerializationTestSupport
+    public class CronExpressionTest : SerializationTestSupport<CronExpression>
     {
-        private static readonly string[] versions = {"0.6.0"};
-
         private static readonly TimeZoneInfo testTimeZone = TimeZoneInfo.Local;
 
         public CronExpressionTest(Type serializerType) : base(serializerType)
@@ -48,7 +46,7 @@ namespace Quartz.Tests.Unit
         /// tests, and against which to validate deserialized object.
         /// </summary>
         /// <returns></returns>
-        protected override object GetTargetObject()
+        protected override CronExpression GetTargetObject()
         {
             CronExpression cronExpression = new CronExpression("0 15 10 * * ? 2005");
             cronExpression.TimeZone = testTimeZone;
@@ -56,30 +54,11 @@ namespace Quartz.Tests.Unit
             return cronExpression;
         }
 
-        /// <summary>
-        /// Get the Quartz versions for which we should verify
-        /// serialization backwards compatibility.
-        /// </summary>
-        /// <returns></returns>
-        protected override string[] GetVersions()
+        protected override void VerifyMatch(CronExpression original, CronExpression deserialized)
         {
-            return versions;
-        }
-
-        /// <summary>
-        /// Verify that the target object and the object we just deserialized
-        /// match.
-        /// </summary>
-        /// <param name="target"></param>
-        /// <param name="deserialized"></param>
-        protected override void VerifyMatch(object target, object deserialized)
-        {
-            CronExpression targetCronExpression = (CronExpression) target;
-            CronExpression deserializedCronExpression = (CronExpression) deserialized;
-
-            Assert.IsNotNull(deserializedCronExpression);
-            Assert.AreEqual(targetCronExpression.CronExpressionString, deserializedCronExpression.CronExpressionString);
-            //Assert.AreEqual(targetCronExpression.getTimeZone(), deserializedCronExpression.getTimeZone());
+            Assert.IsNotNull(deserialized);
+            Assert.AreEqual(original.CronExpressionString, deserialized.CronExpressionString);
+            Assert.AreEqual(original.TimeZone, deserialized.TimeZone);
         }
 
         /// <summary>
@@ -172,8 +151,39 @@ namespace Quartz.Tests.Unit
         public void TestCronExpressionWeekdaysFriday()
         {
             CronExpression cronExpression = new CronExpression("0 0 12 ? * FRI");
+            var nextRunTime = cronExpression.GetTimeAfter(DateTimeOffset.Now);
+            var nextRunTime2 = cronExpression.GetTimeAfter((DateTimeOffset)nextRunTime);
+
             int[] arrJuneDaysThatShouldFire =
                 {1, 8, 15, 22, 29};
+            List<int> juneDays = new List<int>(arrJuneDaysThatShouldFire);
+
+            TestCorrectWeekFireDays(cronExpression, juneDays);
+        }
+
+        [Test]
+        public void TestCronExpressionWeekdaysFridayEveryTwoWeeks()
+        {
+            CronExpression cronExpression = new CronExpression("0 0 12 ? * FRI/2");
+            var nextRunTime = cronExpression.GetTimeAfter(DateTimeOffset.Now);
+            var nextRunTime2 = cronExpression.GetTimeAfter((DateTimeOffset)nextRunTime);
+
+            int[] arrJuneDaysThatShouldFire =
+                {1, 15, 29};
+            List<int> juneDays = new List<int>(arrJuneDaysThatShouldFire);
+
+            TestCorrectWeekFireDays(cronExpression, juneDays);
+        }
+
+        [Test]
+        public void TestCronExpressionWeekdaysThirsdayAndFridayEveryTwoWeeks()
+        {
+            CronExpression cronExpression = new CronExpression("0 0 12 ? * THU,FRI/2");
+            var nextRunTime = cronExpression.GetTimeAfter(DateTimeOffset.Now);
+            var nextRunTime2 = cronExpression.GetTimeAfter((DateTimeOffset)nextRunTime);
+
+            int[] arrJuneDaysThatShouldFire =
+                {1, 14, 15, 28, 29};
             List<int> juneDays = new List<int>(arrJuneDaysThatShouldFire);
 
             TestCorrectWeekFireDays(cronExpression, juneDays);
@@ -248,16 +258,17 @@ namespace Quartz.Tests.Unit
             List<int> fireDays = new List<int>();
 
             DateTime cal = new DateTime(2007, 6, 1, 11, 0, 0).ToUniversalTime();
+            DateTimeOffset? nextFireTime = cal;
+
             for (int i = 0; i < DateTime.DaysInMonth(2007, 6); ++i)
             {
-                DateTimeOffset? nextFireTime = cronExpression.GetTimeAfter(cal);
-                if (!fireDays.Contains(nextFireTime.Value.Day) && nextFireTime.Value.Month == 6)
+                nextFireTime = cronExpression.GetTimeAfter((DateTimeOffset)nextFireTime);
+                if (!fireDays.Contains(nextFireTime.Value.Day) && nextFireTime.Value.Month == 6 && nextFireTime.Value.Year == 2007)
                 {
                     // next fire day may be monday for several days..
                     fireDays.Add(nextFireTime.Value.Day);
                 }
-
-                cal = cal.AddDays(1);
+                //cal = cal.AddDays(1);
             }
 
             // check rite dates fired

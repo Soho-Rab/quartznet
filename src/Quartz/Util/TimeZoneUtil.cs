@@ -45,15 +45,14 @@ namespace Quartz.Util
             timeZoneIdAliases["Hawaiian Standard Time"] = "US/Hawaii";
             timeZoneIdAliases["US/Hawaii"] = "Hawaiian Standard Time";
 
-            timeZoneIdAliases["China Standard Time"] = "Asia/Beijing";
+            timeZoneIdAliases["China Standard Time"] = "Asia/Shanghai";
             timeZoneIdAliases["Asia/Shanghai"] = "China Standard Time";
-            timeZoneIdAliases["Asia/Beijing"] = "China Standard Time";
 
             timeZoneIdAliases["Pakistan Standard Time"] = "Asia/Karachi";
             timeZoneIdAliases["Asia/Karachi"] = "Pakistan Standard Time";
         }
 
-        public static Func<string, TimeZoneInfo> CustomResolver = id => null;
+        public static Func<string, TimeZoneInfo?> CustomResolver = id => null;
 
         /// <summary>
         /// TimeZoneInfo.ConvertTime is not supported under mono
@@ -107,12 +106,12 @@ namespace Quartz.Util
         /// <returns></returns>
         public static TimeZoneInfo FindTimeZoneById(string id)
         {
-            TimeZoneInfo info = null;
+            TimeZoneInfo? info = null;
             try
             {
                 info = TimeZoneInfo.FindSystemTimeZoneById(id);
             }
-            catch (TimeZoneNotFoundException)
+            catch (TimeZoneNotFoundException ex)
             {
                 if (timeZoneIdAliases.TryGetValue(id, out var aliasedId))
                 {
@@ -134,7 +133,9 @@ namespace Quartz.Util
                 if (info == null)
                 {
                     // we tried our best
-                    throw;
+                    throw new TimeZoneNotFoundException(
+                        $"Could not find time zone with id {id}, consider using Quartz.Plugins.TimeZoneConverter for resolving more time zones ids",
+                        ex);
                 }
             }
 

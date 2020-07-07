@@ -1,5 +1,8 @@
+using System;
 using System.Collections.Specialized;
 using System.Configuration;
+
+using log4net;
 
 namespace Quartz.Server
 {
@@ -8,6 +11,8 @@ namespace Quartz.Server
 	/// </summary>
 	public class Configuration
 	{
+		private static readonly ILog log = LogManager.GetLogger(typeof(Configuration));
+
 		private const string PrefixServerConfiguration = "quartz.server";
 		private const string KeyServiceName = PrefixServerConfiguration + ".serviceName";
 		private const string KeyServiceDisplayName = PrefixServerConfiguration + ".serviceDisplayName";
@@ -17,16 +22,23 @@ namespace Quartz.Server
 		private const string DefaultServiceName = "QuartzServer";
 		private const string DefaultServiceDisplayName = "Quartz Server";
 		private const string DefaultServiceDescription = "Quartz Job Scheduling Server";
-	    private static readonly string DefaultServerImplementationType = typeof(QuartzServer).AssemblyQualifiedName;
+	    private static readonly string DefaultServerImplementationType = typeof(QuartzServer).AssemblyQualifiedName!;
 
-	    private static readonly NameValueCollection configuration;
+	    private static readonly NameValueCollection? configuration;
 
         /// <summary>
         /// Initializes the <see cref="Configuration"/> class.
         /// </summary>
 		static Configuration()
 		{
-			configuration = (NameValueCollection) ConfigurationManager.GetSection("quartz");
+			try
+			{
+				configuration = (NameValueCollection) ConfigurationManager.GetSection("quartz");
+			}
+			catch (Exception e)
+			{
+				log.Warn("could not read configuration using ConfigurationManager.GetSection: " + e.Message);
+			}
 		}
 
         /// <summary>
@@ -62,7 +74,7 @@ namespace Quartz.Server
 		/// <returns>The configuration value.</returns>
 		private static string GetConfigurationOrDefault(string configurationKey, string defaultValue)
 		{
-			string retValue = null;
+			string? retValue = null;
             if (configuration != null)
             {
                 retValue = configuration[configurationKey];

@@ -64,16 +64,16 @@ namespace Quartz.Core
         private readonly ILog log;
         private static readonly Version version;
 
-        private readonly QuartzSchedulerResources resources;
+        private readonly QuartzSchedulerResources resources = null!;
 
-        private readonly QuartzSchedulerThread schedThread;
+        private readonly QuartzSchedulerThread schedThread = null!;
 
         private readonly ConcurrentDictionary<string, IJobListener> internalJobListeners = new ConcurrentDictionary<string, IJobListener>();
         private readonly ConcurrentDictionary<string, ITriggerListener> internalTriggerListeners = new ConcurrentDictionary<string, ITriggerListener>();
         private readonly List<ISchedulerListener> internalSchedulerListeners = new List<ISchedulerListener>(10);
 
         private IJobFactory jobFactory = new PropertySettingJobFactory();
-        private readonly ExecutingJobsManager jobMgr;
+        private readonly ExecutingJobsManager jobMgr = null!;
         private readonly QuartzRandom random = new QuartzRandom();
         private readonly List<object> holdToPreventGc = new List<object>(5);
         private volatile bool closed;
@@ -87,7 +87,7 @@ namespace Quartz.Core
         static QuartzScheduler()
         {
             var asm = typeof (QuartzScheduler).GetTypeInfo().Assembly;
-            version = asm.GetName().Version;
+            version = asm.GetName().Version!;
         }
 
         /// <summary>
@@ -118,7 +118,7 @@ namespace Quartz.Core
         /// Gets the scheduler signaler.
         /// </summary>
         /// <value>The scheduler signaler.</value>
-        public virtual ISchedulerSignaler SchedulerSignaler { get; }
+        public virtual ISchedulerSignaler SchedulerSignaler { get; } = null!;
 
         /// <summary>
         /// Returns the name of the <see cref="QuartzScheduler" />.
@@ -595,7 +595,7 @@ namespace Quartz.Core
 
             trig.Validate();
 
-            ICalendar cal = null;
+            ICalendar? cal = null;
             if (trigger.CalendarName != null)
             {
                 cal = await resources.JobStore.RetrieveCalendar(trigger.CalendarName, cancellationToken).ConfigureAwait(false);
@@ -639,7 +639,7 @@ namespace Quartz.Core
             IOperableTrigger trig = (IOperableTrigger) trigger;
             trig.Validate();
 
-            ICalendar cal = null;
+            ICalendar? cal = null;
             if (trigger.CalendarName != null)
             {
                 cal = await resources.JobStore.RetrieveCalendar(trigger.CalendarName, cancellationToken).ConfigureAwait(false);
@@ -758,13 +758,14 @@ namespace Quartz.Core
             ValidateState();
 
             // make sure all triggers refer to their associated job
-            foreach (IJobDetail job in triggersAndJobs.Keys)
+            foreach (var pair in triggersAndJobs)
             {
+                var job = pair.Key;
+                var triggers = pair.Value;
                 if (job == null) // there can be one of these (for adding a bulk set of triggers for pre-existing jobs)
                 {
                     continue;
                 }
-                IReadOnlyCollection<ITrigger> triggers = triggersAndJobs[job];
                 if (triggers == null) // this is possible because the job may be durable, and not yet be having triggers
                 {
                     continue;
@@ -776,14 +777,14 @@ namespace Quartz.Core
 
                     trigger.Validate();
 
-                    ICalendar cal = null;
+                    ICalendar? cal = null;
                     if (trigger.CalendarName != null)
                     {
                         cal = await resources.JobStore.RetrieveCalendar(trigger.CalendarName, cancellationToken).ConfigureAwait(false);
                         if (cal == null)
                         {
-                            throw new SchedulerException(
-                                "Calendar '" + trigger.CalendarName + "' not found for trigger: " + trigger.Key);
+                            var message = $"Calendar '{trigger.CalendarName}' not found for trigger: {trigger.Key}";
+                            throw new SchedulerException(message);
                         }
                     }
 
@@ -799,7 +800,17 @@ namespace Quartz.Core
 
             await resources.JobStore.StoreJobsAndTriggers(triggersAndJobs, replace, cancellationToken).ConfigureAwait(false);
             NotifySchedulerThread(null);
-            await Task.WhenAll(triggersAndJobs.Keys.Select(x => NotifySchedulerListenersJobAdded(x, cancellationToken))).ConfigureAwait(false);
+            foreach (var pair in triggersAndJobs)
+            {
+                var job = pair.Key;
+                var triggers = pair.Value;
+
+                await NotifySchedulerListenersJobAdded(job, cancellationToken).ConfigureAwait(false);
+                foreach (var trigger in triggers)
+                {
+                    await NotifySchedulerListenersScheduled(trigger, cancellationToken).ConfigureAwait(false);
+                }
+            }
         }
 
         public virtual Task ScheduleJob(
@@ -878,7 +889,7 @@ namespace Quartz.Core
             }
 
             var trigger = (IOperableTrigger) newTrigger;
-            ITrigger oldTrigger = await GetTrigger(triggerKey, cancellationToken).ConfigureAwait(false);
+            ITrigger? oldTrigger = await GetTrigger(triggerKey, cancellationToken).ConfigureAwait(false);
             if (oldTrigger == null)
             {
                 return null;
@@ -887,7 +898,7 @@ namespace Quartz.Core
             trigger.JobKey = oldTrigger.JobKey;
             trigger.Validate();
 
-            ICalendar cal = null;
+            ICalendar? cal = null;
             if (newTrigger.CalendarName != null)
             {
                 cal = await resources.JobStore.RetrieveCalendar(newTrigger.CalendarName, cancellationToken).ConfigureAwait(false);
@@ -957,7 +968,7 @@ namespace Quartz.Core
         /// </summary>
         public virtual async Task TriggerJob(
             JobKey jobKey,
-            JobDataMap data,
+            JobDataMap? data,
             CancellationToken cancellationToken = default)
         {
             ValidateState();
@@ -1304,7 +1315,7 @@ namespace Quartz.Core
         /// Get the <see cref="IJobDetail" /> for the <see cref="IJob" />
         /// instance with the given name and group.
         /// </summary>
-        public virtual Task<IJobDetail> GetJobDetail(
+        public virtual Task<IJobDetail?> GetJobDetail(
             JobKey jobKey,
             CancellationToken cancellationToken = default)
         {
@@ -1318,7 +1329,7 @@ namespace Quartz.Core
         /// Get the <see cref="ITrigger" /> instance with the given name and
         /// group.
         /// </summary>
-        public virtual async Task<ITrigger> GetTrigger(
+        public virtual async Task<ITrigger?> GetTrigger(
             TriggerKey triggerKey,
             CancellationToken cancellationToken = default)
         {
@@ -1418,7 +1429,7 @@ namespace Quartz.Core
         /// <summary>
         /// Get the <see cref="ICalendar" /> instance with the given name.
         /// </summary>
-        public virtual Task<ICalendar> GetCalendar(
+        public virtual Task<ICalendar?> GetCalendar(
             string calName,
             CancellationToken cancellationToken = default)
         {
@@ -1476,7 +1487,7 @@ namespace Quartz.Core
         /// </summary>
         /// <param name="name"></param>
         /// <returns></returns>
-        public IJobListener GetInternalJobListener(string name)
+        public IJobListener? GetInternalJobListener(string name)
         {
             internalJobListeners.TryGetValue(name, out var listener);
             return listener;
@@ -1517,7 +1528,7 @@ namespace Quartz.Core
         /// Get the <i>internal</i> <see cref="ITriggerListener" /> that
         /// has the given name.
         /// </summary>
-        public ITriggerListener GetInternalTriggerListener(string name)
+        public ITriggerListener? GetInternalTriggerListener(string name)
         {
             return internalTriggerListeners.TryGetAndReturn(name);
         }
@@ -1780,7 +1791,7 @@ namespace Quartz.Core
         /// <param name="cancellationToken">The cancellation instruction.</param>
         public virtual async Task NotifyJobListenersWasExecuted(
             IJobExecutionContext jec,
-            JobExecutionException je,
+            JobExecutionException? je,
             CancellationToken cancellationToken = default)
         {
             // build a list of all job listeners that are to be notified...
@@ -1850,7 +1861,7 @@ namespace Quartz.Core
         /// Notifies the scheduler listeners about job that was unscheduled.
         /// </summary>
         public virtual async Task NotifySchedulerListenersUnscheduled(
-            TriggerKey triggerKey,
+            TriggerKey? triggerKey,
             CancellationToken cancellationToken = default)
         {
             // build a list of all scheduler listeners that are to be notified...
@@ -1898,7 +1909,7 @@ namespace Quartz.Core
         /// <param name="group">The group.</param>
         /// <param name="cancellationToken">The cancellation instruction.</param>
         public virtual async Task NotifySchedulerListenersPausedTriggers(
-            string group,
+            string? group,
             CancellationToken cancellationToken = default)
         {
             // build a list of all job listeners that are to be notified...
@@ -1948,7 +1959,7 @@ namespace Quartz.Core
         /// <param name="group">The group.</param>
         /// <param name="cancellationToken">The cancellation instruction.</param>
         public virtual Task NotifySchedulerListenersResumedTriggers(
-            string group,
+            string? group,
             CancellationToken cancellationToken = default)
         {
             return NotifySchedulerListeners(l => l.TriggersResumed(group, cancellationToken), $"resumed group: {group}");
@@ -2253,7 +2264,7 @@ namespace Quartz.Core
             // overridden to initialize null life time service,
             // this basically means that remoting object will live as long
             // as the application lives
-            return null;
+            return null!;
         }
 
         void IRemotableQuartzScheduler.Clear()
@@ -2331,7 +2342,7 @@ namespace Quartz.Core
             return RescheduleJob(triggerKey, newTrigger).ConfigureAwait(false).GetAwaiter().GetResult();
         }
 
-        void IRemotableQuartzScheduler.TriggerJob(JobKey jobKey, JobDataMap data)
+        void IRemotableQuartzScheduler.TriggerJob(JobKey jobKey, JobDataMap? data)
         {
             TriggerJob(jobKey, data).ConfigureAwait(false).GetAwaiter().GetResult();
         }
@@ -2421,12 +2432,12 @@ namespace Quartz.Core
             return GetTriggerKeys(matcher).ConfigureAwait(false).GetAwaiter().GetResult();
         }
 
-        IJobDetail IRemotableQuartzScheduler.GetJobDetail(JobKey jobKey)
+        IJobDetail? IRemotableQuartzScheduler.GetJobDetail(JobKey jobKey)
         {
             return GetJobDetail(jobKey).ConfigureAwait(false).GetAwaiter().GetResult();
         }
 
-        ITrigger IRemotableQuartzScheduler.GetTrigger(TriggerKey triggerKey)
+        ITrigger? IRemotableQuartzScheduler.GetTrigger(TriggerKey triggerKey)
         {
             return GetTrigger(triggerKey).ConfigureAwait(false).GetAwaiter().GetResult();
         }
@@ -2446,7 +2457,7 @@ namespace Quartz.Core
             return DeleteCalendar(calName).ConfigureAwait(false).GetAwaiter().GetResult();
         }
 
-        ICalendar IRemotableQuartzScheduler.GetCalendar(string calName)
+        ICalendar? IRemotableQuartzScheduler.GetCalendar(string calName)
         {
             return GetCalendar(calName).ConfigureAwait(false).GetAwaiter().GetResult();
         }

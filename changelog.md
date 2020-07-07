@@ -2,6 +2,97 @@
 
 [http://www.quartz-scheduler.net](http://www.quartz-scheduler.net)
 
+## Release 3.1.0, xx xx 2020
+
+This release concentrates on performance and bringing support to de facto Microsoft libraries like dependency injection and ASP.NET Core hosting.
+A big change is that now SQL queries use parametrized scheduler name, which allows database server to reuse query plans and use indexes more optimally.
+This will help especially clusters which have large number of nodes. The SQL server indexes were also revisited and their amount reduced by using smarter covering indexes.
+
+There are also some minor bug fixes present.
+
+* BREAKING CHANGES
+
+     * minimum supported .NET Full Framework is now 4.6.1
+
+* NEW FEATURE
+
+    * Microsoft DI integration via package Quartz.Extensions.DependencyInjection (also allows briding to Microsoft Logging)
+	* ASP.NET Core / Hosting integration and health checks via revisited NuGet package Quartz.AspNetCore (thank you zlzforever for contributing the work)
+    * Introduced a config parameter `ClusterCheckinMisfireThreshold` (#692)
+	* Giving meaningful names to examples folders (#701)
+	* Added search patterns/sub directory search to directoty scanner job (#411, #708)
+	* Fluent interface for scheduler configuration (#791)
+	* Support every nth week in cron expression (#790)
+	* Enable SQLite job store provider for NetStandard (#802)
+	* Add configurable params for StdRowLockSemaphore for Failure obtaining db row lock
+	* SchedName added to queries as sql paramteter (#818)
+	* Server, example and test projects upgraded to user .NET Core 3.1
+	* Nullable reference type annotations have been enabled
+	* Symbols are now provided as a separate NuGet symbol package (snupkg)
+	* SQL Server indexes have been fine-tuned, redudancies were removed and you can follow the current scripts to update to latest version of them
+
+* FIXES
+
+    * Allow binary serialization for DirectoryScanJob data (#658)
+	* LibLog - Fixed NLog + Log4net callsite. Added support for NLog structured logging. Optimized Log4net-logger (#705)
+	* Upgrade LibLog to latest version (#749)
+	* RAMJobStore performance improvements (#718, #719, #720)
+	* General performance improvements (#725, #723, #727)
+	* GetTimeBefore() and GetFinalFireTime() should throw NotImplementedException instead of returning null (#731)
+	* Switch to official TimeZoneConverter NuGet package (#739)
+	* Remove invalid TimeSpanParseRule.Days (#782)
+	* Update tables_sqlServer.sql to follow current SQL syntax and structures (#787)
+	* Fix China Standard Time mapping in TimeZoneUtil.cs (#765)
+	* Release BLOCKED triggers in ReleaseAcquiredTrigger (#741 #800)
+	* DailyTimeIntervalTrigger failed to set endingDailyAfterCount = 1
+	* CronTrigger: cover all valid misfire policies, and provide a sensible default and logging when seeing an invalid one
+	
+
+## Release 3.0.7, Oct 7 2018
+
+This release brings .NET Core 2.1 version of example server and adds new plugin 
+Quartz.Plugins.TimeZoneConverter which allows usage of TimeZoneConverter library
+(https://github.com/mj1856/TimeZoneConverter) to get consistent time zone id parsing between
+Linux and Windows.
+
+There are also some bug fixes related to AdoJobStore.
+
+* NEW FEATURE
+
+    * Add .NET Core 2.1 version of example server (#682)
+	* New plugin Quartz.Plugins.TimeZoneConverter which allows usage of TimeZoneConverter library (#647)
+
+* FIXES
+
+    * Added transient codes from EF into new JobStore (#681)
+	* Parametrized queries produced by ReplaceTablePrefix should be cached (#651)
+	* Use TypeNameHandling.Auto for JsonObjectSerializer (#621)
+	* Fix a race condition that could cause duplicate trigger firings (#690)
+	* ISchedulerListener.JobScheduled not called when scheduling multiple jobs (ScheduleJobs) (#678)
+
+
+## Release 3.0.6, Jul 6 2018
+
+This release fixes a nasty bug with JSON calendar database serialization and .NET Core SQL Server client libraries
+have been updated to mitigiate possible hangs when connection drops occur.
+
+Also some other minor bugs have been also addressed.
+
+You should now be able to debug into Quartz.NET sources with added SourceLink support.
+
+* NEW FEATURE
+
+    * Add SourceLink support (#642)
+    * Make JobInterrupted method virtual in class SchedulerListenerSupport (#631)
+
+* FIXES
+
+    * Trigger group can be left as paused when all triggers have been removed (#641)
+    * PlatformNotSupportedException on RaspberryPi (Windows IoT) (#630)
+    * JSON serialisation returning defaults for derived calendar settings (#634)
+    * .NET Core version not able to recover from DB connection drops (#637)
+
+
 ## Release 3.0.5, May 27 2018
 
 This release fixes couple bugs and adds support for .NET Core version of Oracle's managed data access library.
@@ -44,7 +135,7 @@ This is a minor fix release that fixes single issue that still prevented full us
 
 * FIXES
 
-	* Mark ReadOnlyCompatibleHashSet as serializable (#576)
+	* Mark HashSet as serializable (#576)
 
 
 ## Release 3.0.1, Jan 21 2018

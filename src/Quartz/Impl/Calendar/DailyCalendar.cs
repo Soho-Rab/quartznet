@@ -79,6 +79,10 @@ namespace Quartz.Impl.Calendar
         private int rangeEndingSecond;
         private int rangeEndingMillis;
 
+        private DailyCalendar()
+        {
+        }
+
         /// <summary>
         /// Create a <see cref="DailyCalendar" /> with a time range defined by the
         /// specified strings and no baseCalendar.
@@ -154,7 +158,7 @@ namespace Quartz.Impl.Calendar
         /// information on base calendar functionality.</param>
         /// <param name="rangeStartingTime">The range starting time in millis.</param>
         /// <param name="rangeEndingTime">The range ending time in millis.</param>
-        public DailyCalendar(ICalendar baseCalendar, string rangeStartingTime, string rangeEndingTime) : base(baseCalendar)
+        public DailyCalendar(ICalendar? baseCalendar, string rangeStartingTime, string rangeEndingTime) : base(baseCalendar)
         {
             SetTimeRange(rangeStartingTime, rangeEndingTime);
         }
@@ -872,7 +876,7 @@ namespace Quartz.Impl.Calendar
                    rangeEndingMillis == obj.rangeEndingMillis;
         }
 
-        public override bool Equals(object obj)
+        public override bool Equals(object? obj)
         {
             if (!(obj is DailyCalendar))
                 return false;
